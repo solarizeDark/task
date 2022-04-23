@@ -10,7 +10,7 @@
 --                  отдел выдачи паспорта, доп услуги, место рождения и регион регистрации выделены в отдельные таблицы
 --                          справочники, тк могут быть одинаковыми у многих заявителей, хранить внешний ключ выгоднее по памяти
 
---                  телефоны, паспортные данные, данные о компаниях, параметры заявки относятся к заявителю,
+--                  паспортные данные, данные о компаниях относятся к заявителю,
 --                              поэтому первичные ключи совпадают с внешними
 
 --
@@ -51,10 +51,12 @@ create table applicants (
 
 create table phone_numbers (
 
+    id bigint,
+        constraint phone_numbers_pk primary key(id),
+
     applicant_id bigint,
         constraint phone_numbers_applicants_fk foreign key (applicant_id) references applicants(id)
                            on delete restrict on update cascade,
-        constraint phone_numbers_pk primary key(applicant_id),
 
     number varchar(11),
         constraint phone_numbers_number_length check ( length(number) = 11)
@@ -171,10 +173,12 @@ create table aims (
 
 create table applications (
 
-    applicant_id bigint,
+    id bigint ,
+        constraint application_parameters_pk primary key(id),
+
+    applicant_id bigint not null ,
         constraint application_parameters_applicants_fk foreign key (applicant_id) references applicants(id)
                            on delete restrict on update cascade,
-        constraint application_parameters_pk primary key(applicant_id),
 
     type bigint not null,
         constraint application_parameters_type_fk foreign key (type) references types(id)
@@ -220,7 +224,7 @@ create table applications_to_services (
 
     application_id bigint,
         constraint applications_services_applications_fk foreign key (application_id)
-            references applications(applicant_id)
+            references applications(id)
             on delete cascade on update cascade ,
 
     service_id bigint,

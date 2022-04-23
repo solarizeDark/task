@@ -1,3 +1,5 @@
+-- PostgreSQL 14
+
 -- сущности выделенные с первого скрина
 -- основные данные: персональные (ФИО, моб телефон, доп телефон, почта)
 --                  паспортные данные (серия, номер, дата выдачи, [код подразделения, кем выдан], дата рождения,
@@ -5,8 +7,8 @@
 --                  данные о месте работы ([регион], название компании, ИНН, название должности, зп, дата начала работы)
 
 --                  телефоны - отдельная таблица, тк может быть несколько на заявителя
---                  отдел выдачи паспорта, место рождения и регион регистрации выделены в отдельные таблицы справочники,
---                          тк могут быть одинаковыми у многих заявителей, хранить внешний ключ выгоднее по памяти
+--                  отдел выдачи паспорта, доп услуги, место рождения и регион регистрации выделены в отдельные таблицы
+--                          справочники, тк могут быть одинаковыми у многих заявителей, хранить внешний ключ выгоднее по памяти
 
 --                  телефоны, паспортные данные, данные о компаниях, параметры заявки относятся к заявителю,
 --                              поэтому первичные ключи совпадают с внешними
@@ -18,7 +20,7 @@
 --                                              / сумма с учетом услуг не хранится, тк ее можно посчитать на лету
 --                   доп услуги (вид, стоимость)
 
---                  поля ввода вида продукта и цели кредита на скринах - выпадающие списки,
+--                   поля ввода вида продукта и цели кредита на скринах - выпадающие списки,
 --                                  поэтому выделены в таблицы справочники
 
 --
@@ -35,7 +37,6 @@
 -- поля паспортных данных: код, серия, номер и тд, а также длина номера телефона фиксированны и содержат
 --                           check constraints, тк они фактически фиксированны
 
--- applicants (name, surname, patronymic, phone number, additional phone number, email)
 create table applicants (
 
     id bigint,
@@ -61,7 +62,6 @@ create table phone_numbers (
 );
 
 -- таблица - справочник
--- units (code, name)
 create table units (
 
     -- уникальное значение, поэтому используется как первичный ключ
@@ -93,7 +93,6 @@ create table regions (
 
 );
 
--- passports (series, number, issue_date, unit_code, unit_name, birth, birth_location, registration_region)
 create table passport_info (
 
     applicant_id bigint,
@@ -125,7 +124,6 @@ create table passport_info (
 
 );
 
--- company_info (region, name, TIN(ИНН), position, salary, entrance_date)
 create table company_info (
 
     applicant_id bigint,
@@ -171,8 +169,7 @@ create table aims (
 
 );
 
--- application_parameters (type, aim, sum, rate, term)
-create table application_parameters (
+create table applications (
 
     applicant_id bigint,
         constraint application_parameters_applicants_fk foreign key (applicant_id) references applicants(id)
@@ -193,6 +190,42 @@ create table application_parameters (
     rate decimal(10, 2) not null,
         constraint application_parameters_rate_positive check ( rate > 0 ),
 
-    term integer not null
+    term integer not null,
+
+    -- дата заявления
+    declaration_date date not null,
+
+    -- дата выдачи кредита, null по дефолту, тк неизвестен статус
+    start date default null,
+
+    -- статус заявки, например: рассматривается, принята, отклонена
+    status varchar
+
+);
+
+-- справочник
+create table additional_services (
+
+    id bigint,
+        constraint additional_services_pk primary key (id),
+
+    price decimal(10, 2) not null,
+
+    name varchar not null
+
+);
+
+-- вспомогательная многие ко многим
+create table applications_to_services (
+
+    application_id bigint,
+        constraint applications_services_applications_fk foreign key (application_id)
+            references applications(applicant_id)
+            on delete cascade on update cascade ,
+
+    service_id bigint,
+        constraint applications_services_services_fk foreign key (service_id)
+            references additional_services(id)
+            on delete cascade on update cascade
 
 );

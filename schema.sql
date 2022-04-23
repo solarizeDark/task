@@ -1,10 +1,26 @@
--- основные данные: персональные(ФИО, моб телефон, доп мобила, почта)
---                  паспортные данные(серия, номер, дата выдачи, код подразделения, кем выдан, дата рождения, место рождения, регион регистрации)
---                  данные о месте работы(регион, название компании, ИНН, название должности, зп, дата начала работы)
+-- сущности выделенные с первого скрина
+-- основные данные: персональные (ФИО, моб телефон, доп телефон, почта)
+--                  паспортные данные (серия, номер, дата выдачи, [код подразделения, кем выдан], дата рождения,
+--                                      [место рождения], [регион регистрации])
+--                  данные о месте работы ([регион], название компании, ИНН, название должности, зп, дата начала работы)
 
--- параметры заявки: параметры (вид продукта, цель кредита, сумма, размер ставки, срок)
+--                  телефоны - отдельная таблица, тк может быть несколько на заявителя
+--                  отдел выдачи паспорта, место рождения и регион регистрации выделены в отдельные таблицы справочники,
+--                          тк могут быть одинаковыми у многих заявителей, хранить внешний ключ выгоднее по памяти
+
+--                  телефоны, паспортные данные, данные о компаниях, параметры заявки относятся к заявителю,
+--                              поэтому первичные ключи совпадают с внешними
+
+--
+
+-- сущности выделенные со второго скрина
+-- параметры заявки: параметры ([вид продукта], [цель кредита], сумма, размер ставки, срок)
 --                                              / сумма с учетом услуг не хранится, тк ее можно посчитать на лету
 --                   доп услуги (вид, стоимость)
+
+--                  поля ввода вида продукта и цели кредита на скринах - выпадающие списки,
+--                                  поэтому выделены в таблицы справочники
+
 --
 
 -- data types alignment
@@ -12,6 +28,12 @@
 --                                      атрибуты не null - поля фиксированной длины,
 --                                      атрибуты возможные null - поля фиксированной длины,
 --                                      атрибуты с нефиксированной длиной
+
+-- для всех полей, которые хранят денежные единицы выбран decimal с 2 знаками после запятой, тк
+-- в формах на скринах суммы вводятся с точностью до копейки, аналогично для процентной ставки по кредиту
+
+-- поля паспортных данных: код, серия, номер и тд, а также длина номера телефона фиксированны и содержат
+--                           check constraints, тк они фактически фиксированны
 
 -- applicants (name, surname, patronymic, phone number, additional phone number, email)
 create table applicants (
@@ -38,9 +60,11 @@ create table phone_numbers (
 
 );
 
--- отделы выдачи паспорта, отдельная таблица - справочник
+-- таблица - справочник
+-- units (code, name)
 create table units (
 
+    -- уникальное значение, поэтому используется как первичный ключ
     unit_code varchar(6) not null ,
         constraint passport_info_unit_code_length check ( length(unit_code) = 6),
         constraint units_pk primary key (unit_code),
@@ -49,7 +73,7 @@ create table units (
 
 );
 
--- отдельная таблица - справочник
+-- таблица - справочник
 create table birth_locations (
 
     id bigint,
@@ -59,7 +83,8 @@ create table birth_locations (
 
 );
 
-create table registration_regions (
+-- таблица - справочник
+create table regions (
 
     id bigint,
         constraint registration_regions_pk primary key (id),
@@ -81,7 +106,7 @@ create table passport_info (
                            on delete restrict on update cascade,
 
     reg_region bigint not null ,
-        constraint passport_info_reg_location_fk foreign key (reg_region) references registration_regions(id)
+        constraint passport_info_reg_location_fk foreign key (reg_region) references regions(id)
                           on delete restrict on update cascade,
 
     birth date not null ,
@@ -104,14 +129,18 @@ create table passport_info (
 create table company_info (
 
     applicant_id bigint,
-        constraint passport_info_applicant_fk foreign key (applicant_id) references applicants(id)
+        constraint company_info_applicant_fk foreign key (applicant_id) references applicants(id)
                          on delete restrict on update cascade,
         constraint company_info_pk primary key (applicant_id),
 
-    salary integer not null ,
+    region bigint,
+        constraint company_info_region_fk foreign key (region) references regions(id)
+                         on delete restrict on update cascade,
+
+    salary decimal(10, 2) not null ,
         constraint company_info_salary_positive check ( salary > 0 ),
 
-    entrance_date date not null,
+    entrance_date date not null ,
 
     TIN varchar(12) not null ,
         constraint passport_info_number_length check ( length(TIN) = 12),
@@ -122,30 +151,33 @@ create table company_info (
 
 );
 
--- types (name)
--- отдельные таблицы - справочники, тк на скриншотах вид и цель кредита - выпадающие списки
+-- таблица - справочник
 create table types (
 
     id bigint,
         constraint types_pk primary key (id),
 
     type varchar not null
+
 );
 
--- aims (name)
+-- таблица - справочник
 create table aims (
 
     id bigint,
         constraint aim_pk primary key (id),
 
     aim varchar not null
+
 );
 
 -- application_parameters (type, aim, sum, rate, term)
 create table application_parameters (
 
-    id bigint,
-        constraint application_parameters_pk primary key (id),
+    applicant_id bigint,
+        constraint application_parameters_applicants_fk foreign key (applicant_id) references applicants(id)
+                           on delete restrict on update cascade,
+        constraint application_parameters_pk primary key(applicant_id),
 
     type bigint not null,
         constraint application_parameters_type_fk foreign key (type) references types(id)
@@ -155,8 +187,11 @@ create table application_parameters (
         constraint application_parameters_aim_fk foreign key (aim) references aims(id)
                         on delete restrict on update restrict ,
 
-    sum bigint not null,
+    sum decimal(10, 2) not null,
         constraint application_parameters_sum_positive check ( sum > 0 ),
+
+    rate decimal(10, 2) not null,
+        constraint application_parameters_rate_positive check ( rate > 0 ),
 
     term integer not null
 

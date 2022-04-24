@@ -45,11 +45,10 @@ public class Main {
         CreditsRepository repository = new CreditsRepository(jdbcTemplate());
 
         CreditInfo creditInfo = repository.getCreditInfoById(4L);
-        calculation(creditInfo.getTerm(), creditInfo.getRate(), creditInfo.getSum());
-
+         calculation(creditInfo.getTerm(), creditInfo.getRate(), creditInfo.getSum());
     }
 
-    // alternative: payment = round2(sum * i / ( 1 - Math.pow(1 + i, -1 * months)));
+    // alternative() : payment = round2(sum * i / ( 1 - Math.pow(1 + i, -1 * months)));
     public static void calculation(int months, double rate, double sum) {
         // перевод процентной ставки из годовой в месячную
         double i = rate / 100 / 12;
@@ -62,11 +61,13 @@ public class Main {
         System.out.println("# month | payment | main duty | percents duty | main duty left");
         int month = 1;
 
+        double dutyByPercents, mainDuty;
+
         while (sum > 0) {
             // долг по процентам
-            double dutyByPercents = round2(i * sum);
+            dutyByPercents = round2(i * sum);
             // выплаченный основной долг
-            double mainDuty = round2(payment - dutyByPercents);
+            mainDuty = round2(payment - dutyByPercents);
             System.out.printf("%7d | %.2f | %9.2f | %13.2f | %.2f \n", month++, payment, mainDuty,
                                 dutyByPercents, (sum -= mainDuty) < 0 ? 0 : sum);
         }
